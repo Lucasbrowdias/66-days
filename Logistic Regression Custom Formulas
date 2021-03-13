@@ -1,0 +1,329 @@
+//File dedicated to all custom formulas availiable to use in sheets
+
+/**
+ * Multiplies two arrays
+ *
+ * @param {array1} input The first array in the multiplication
+ * @param {array2} input The second array in the multiplication
+ * @return The multiplied array.
+ * @customfunction
+ */
+
+function ARRAYMULT(array1,array2) {
+  //array size info
+  var array1Xlen = array1[0].length
+  var array1Ylen = array1.length
+  var array2Xlen = array2[0].length
+  var array2Ylen = array2.length
+  
+  var check = array1Xlen==array2Ylen
+
+  var newArray= []
+  if( check){ //it only works when the columns of the first array is equal to the number of rows of the second array
+  for(i=0;i<array1Ylen;++i){ //iteration to create each row of values
+    var arrayRow = []
+    for (j=0;j<array2Xlen;++j){ //iteration to create each value
+      var arrayValue = 0
+      for (v=0;v<array1Xlen;++v){ //sum iteration as given by array multplication
+        arrayValue += array1[i][v]*array2[v][j]
+      }
+      arrayRow.push(arrayValue)
+    }
+    newArray.push(arrayRow)
+  }
+  return newArray}
+  else {return "NA"}
+    
+}
+
+/**
+ * Count the numbers of multiple columns
+ *
+ * @param {array} input The set of data to count numbers by columns
+ * @return The amount of number cells in each column.
+ * @customfunction
+ */
+
+function MULTICOLCOUNT(array){
+  //variables
+  var output = []
+  var rows = array.length
+  var columns = array[0].length
+
+  for (i=0;i<columns;++i){ //iteration for each column
+    var numbers = 0;
+    for (j=0;j<rows;++j){ // number counter for the column
+      numbers += typeof array[j][i] =='number' ? 1:0
+    }
+    output.push(numbers)
+  }
+
+  return output
+
+}
+
+/**
+ * Checks all the rows to see if all numbers are data
+ *
+ * @param {array} input The data to check if all columns are numbers in a given row
+ * @return A TRUE or FALSE boolean of wheter each row only has numbers or not
+ * @customfunction
+ */
+
+
+function ROWFILTERCHECK(array){
+  
+  //variables
+  var output = []
+  var rows = array.length
+  var columns = array[0].length
+
+  for (i=0;i<rows;++i){ //iteration for each row
+    var bool = true;
+    for (j=0;j<columns;++j){ //AND type checker for the row
+      bool = bool && typeof array[i][j] == 'number'
+      }
+    output.push(bool)
+   } 
+
+  return output
+
+}
+
+/**
+ * Groups the data of a given sorted column into a certain number of bins by frequency
+ *
+ * @param {array} input The column of data to bin
+ * @param {numBins} input The number of bins to group the data
+ * @return The boundaries of each bin.
+ * @customfunction
+ */
+
+function FREQBIN(array,numBins) {
+    //variables
+    var arrayLen = array.length
+    var binSize = Math.ceil(arrayLen/numBins) 
+    var limits = [array[0]]
+    
+    for (i=0;i<numBins;++i){
+               
+        limits.push((i+1)*binSize > arrayLen ? array[arrayLen-1]: array[(i+1)*binSize-1])
+        //returns last value if last bin is smaller
+    }
+     
+     return limits
+           
+}
+
+/**
+ * Groups the data of a given sorted column into a certain number of bins by frequency and finds each bin average
+ *
+ * @param {array} input The column of data to bin
+ * @param {numBins} input The number of bins to group the data
+ * @return The average value of each bin.
+ * @customfunction
+ */
+
+function FREQBINAVG(array,numBins) {
+    //variables
+    var arrayLen = array.length
+    var binSize = Math.ceil(arrayLen/numBins) 
+    var avg = []
+    
+    for (n=0;n<numBins;++n){
+        var bin = []
+        var check = n
+        for(b=n*binSize;b<(n+1)*binSize;++b){ //iteration to create array of bin values
+          
+          if(b<arrayLen) {bin.push(array[b][0])} //only pushes values until array size
+         
+        }        
+        var binAvg = arrayAvg(bin) //uses support function to calculate array average
+        avg.push([binAvg])
+    }
+     
+     return avg
+           
+}
+
+/**
+ * Groups the data of a given sorted column into a certain number of bins by frequency and also returns each bin's average value
+ *
+ * @param {array} input The column of data to bin
+ * @param {numBins} input The number of bins to group the data
+ * @return The boundaries and the average value of each bin, with the average between its boundaries.
+ * @customfunction
+ */
+
+function FREQBINMIX (array,numBins,sheet=true){
+  //variables
+  var arrayLen = array.length
+  var binSize = Math.ceil(arrayLen/numBins) 
+  if(sheet){ //code designed for a 2D array input
+   var stats = [array[0]] //brings the first value of the array
+        
+   for (n=0;n<numBins;++n){
+    if(n<numBins){
+      var bin = []
+      for(b=n*binSize;b<(n+1)*binSize;++b){ //brings first the average value
+            
+        if(b<arrayLen) {bin.push(array[b][0])}
+         
+        }        
+      var binAvg = arrayAvg(bin)
+      stats.push([binAvg])
+      }
+      stats.push((n+1)*binSize > arrayLen ? array[arrayLen-1]: array[(n+1)*binSize-1]) //then the bin upper bound
+      }
+    }
+    else { //mirrored code for a 1D array (vector)
+      var stats = [[array[0]]]
+        
+      for (n=0;n<numBins;++n){
+        if(n<numBins){
+        var bin = []
+        for(b=n*binSize;b<(n+1)*binSize;++b){
+            
+          if(b<arrayLen) {bin.push(array[b])}
+         
+          }        
+          var binAvg = arrayAvg(bin)
+          stats.push([binAvg])
+          }
+        stats.push([(n+1)*binSize > arrayLen ? array[arrayLen-1]: array[(n+1)*binSize-1]])
+        }
+      }
+  return stats
+}
+
+/**
+ * Groups the data of a group of columns into a certain number of bins by frequency and average
+ *
+ * @param {array} input The columns of data to bin
+ * @param {binVector} input The number of bins to group each column
+ * @return The boundaries and average value of each bin for each column.
+ * @customfunction
+ */
+
+function MULTICOLBIN (array,binVector){
+
+  //variables
+  var numCol = array[0].length
+  var numRows = array.length
+  var returnSize = binVector.reduce(function(a, b) {return Math.max(a, b);})*2+1 //the number of returned values in the     biggest bin to adjust return array
+  var baseArray = []
+  var data = []
+
+
+  for (i=0;i<numCol;++i){ // iteration for each column
+    var column = []
+    for (j=0;j<numRows;++j){ //iteration to make sorting possible
+      column.push(array[j][i])
+      }
+    column.sort(function(a, b){return a - b})
+    baseArray.push(FREQBINMIX(column,binVector[i],false)) //use of the previous function in a 1d case
+    }
+
+  for (r=0;r<returnSize;++r){ //iteration to build the return array
+    var row = []
+    for(c=0;c<numCol;++c){
+      row.push(binVector[c]*2+1>r?baseArray[c][r][0]:"") //checks if the columns will have binning data to fill
+      }
+
+    data.push(row)
+
+    }
+ return data
+}
+
+/**
+ * Creates all possible combinations from a group of data
+ *
+ * @param {array} input The data to create all combinations
+ * @param {paramSize} input The number of values in each column
+ * @return All possible combinations of the dataset (eliminate duplicates by using UNIQUE).
+ * @customfunction
+ */
+
+function COMBINATIONS (array,paramSize){
+  //variables
+  var iterations = 1 //number of the column iterated
+  for(i=0;i<paramSize.length;++i){ //multiplies all paramSize values to find how many combinations there will be
+    iterations = iterations*paramSize[i][0]
+  }
+  var combinations = []
+  
+  for (c=0;c<iterations;++c){combinations[c]=[]} //creates a array for each row of combinations to be inputed
+  
+  var rounds = 1 //times all column values will go around
+  var repititions = iterations //times each value will repeat itself before going to next value
+  for(p=0;p<paramSize.length;++p){
+    repititions = repititions/paramSize[p] //repetitions decrease for each column
+    for(n=0;n<rounds;++n){
+      for(c=0;c<paramSize[p];++c){
+        for(r=0;r<repititions;++r){      
+          row = (n*paramSize[p]*repititions)+c*repititions+r
+          combinations[row].push(array[c][p])
+        }
+      }
+    }
+    rounds = rounds*paramSize[p] //number of rounds increase for each column
+   
+  }
+
+
+  return combinations
+}
+
+function LOGISTICANALYZER(dataSet,coefficients,variableNames,avgs,upBound,lowBound){
+  var analysisArray = []
+  var col = avgs.length
+
+  
+  for(p=1;p<coefficients.length;++p){
+    // create the arrays to check values within each bound
+    var yBound = coefficients[0][p] == 0 ? 1: 3*coefficients[0][p]/coefficients[0][p]
+    var threshold = equationValues(avgs,coefficients,p)
+    var upperBound = equationValues(upBound,coefficients,p,yBound)
+    var lowerBound = equationValues(lowBound,coefficients,p,yBound*-1)
+
+    for (r=0;r<threshold.length;++r){
+      var rowData = [variableNames[0][p]]
+      //base values
+      for (a=1;a<col;++a){rowData.push(avgs[r][a])}
+      for (a=1;a<col;++a){rowData.push(upBound[r][a])}
+      for (a=1;a<col;++a){rowData.push(lowBound[r][a])}
+
+
+      //threshold data
+      rowData.push(threshold[r][p])
+      var threshRet = [logisticFilterAbove (dataSet,threshold[r],upBound[r],lowBound[r]),
+      logisticFilterBelow (dataSet,threshold[r],upBound[r],lowBound[r])]
+      var threshDelta = threshRet[0][1] == "NA" || threshRet[1][1] =="NA" ? "NA" : threshRet[0][1]- threshRet[1][1]
+      rowData.push(threshRet[0][0],threshRet[0][1],threshRet[1][0],threshRet[1][1],threshDelta)
+      
+
+      //upper bound data
+      rowData.push(upperBound[r][p])
+      var upRet = [logisticFilterAbove (dataSet,upperBound[r],upBound[r],lowBound[r]),
+      logisticFilterBelow (dataSet,upperBound[r],upBound[r],lowBound[r])]
+      var upDelta = upRet[0][1] == "NA" || upRet[1][1] =="NA" ? "NA" : upRet[0][1]- upRet[1][1]
+      rowData.push(upRet[0][0],upRet[0][1],upRet[1][0],upRet[1][1],upDelta)
+
+      //lower bound Data
+      rowData.push(lowerBound[r][p])
+      var lowRet = [logisticFilterAbove (dataSet,lowerBound[r],upBound[r],lowBound[r]),
+      logisticFilterBelow (dataSet,lowerBound[r],upBound[r],lowBound[r])]
+      var lowDelta = lowRet[0][1] == "NA" || lowRet[1][1] =="NA" ? "NA" : lowRet[0][1]- lowRet[1][1]
+      rowData.push(lowRet[0][0],lowRet[0][1],lowRet[1][0],lowRet[1][1],lowDelta)
+
+      analysisArray.push(rowData)      
+
+    }
+  }
+
+  return analysisArray
+
+}
+
+

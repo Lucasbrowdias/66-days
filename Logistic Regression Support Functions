@@ -1,0 +1,132 @@
+//functions to be used only within scripts enviroment
+
+function frequencyBinning(array,numBins) { // returns the bin boundaries
+    
+    var arrayLen = array.length
+    var binSize = int(arrayLen/numBins) 
+    var limits = [array[0]]
+    
+    for (i=0;i<binSize;++i){
+        limits.push(i*binSize > arrayLen ? arrayLen[a-1] : arrayLen[i*binSize-1])
+    }
+     
+     return limits
+           
+}
+
+function arraySum(array){ //to sum all values within an array
+  var sum = 0
+
+  for(s=0;s<array.length;++s){
+    sum += array[s]
+  }
+  return sum
+
+}
+
+function arrayAvg(array){ //to find the average value of an array
+  var sum = 0
+
+  for(s=0;s<array.length;++s){
+    sum += array[s]
+  }
+  return sum/array.length
+
+}
+
+function equationFreezer (array,coeffiecents,paramIndex,y=0){ 
+  //bring the x values that meet the y value for the function whenn all but one variable are set
+  var xValues = []
+  var paramSize = coeffiecents[0].length
+
+  for (i=0;i<array.length;++i){
+    if(coeffiecents[0][paramIndex]==0 ){
+      push[[0]] //returns zero values when the chosen variable does not influence the equation
+    }
+    else{
+      var x = y/coeffiecents[0][paramIndex] //starts the iteration by the y value divided by the coeffiecent
+      for(b=0;b<paramSize;++b){ //iteratively finds the x value by adding each other variable value divided by the coefficent
+        x += b==paramIndex ? 0 : -coeffiecents[0][b]*array[i][b]/coeffiecents[0][paramIndex]
+      }
+      xValues.push([x])
+    }
+  }
+  return xValues
+}
+
+function equationValues (array,coeffiecents,paramIndex,y=0){ 
+  //bring the array of values to meet a certain y when all but one variable are set
+  var xValues = []
+  var paramSize = coeffiecents[0].length
+  var newArray = array
+
+  for (i=0;i<array.length;++i){ // same function as the equation freezer, except for output
+    if(coeffiecents[0][paramIndex]==0 ){
+      push[[0]]
+    }
+    else{
+      var x = y/coeffiecents[0][paramIndex]
+      for(b=0;b<paramSize;++b){
+        x += b==paramIndex ? 0 : -coeffiecents[0][b]*array[i][b]/coeffiecents[0][paramIndex]
+      }
+      newArray[i][paramIndex]=x //replaces only the x value of the original array for the calculated one
+    }
+  }
+  return newArray
+}
+
+function logisticFilterAbove (array,parameters,upBound,lowBound,start=2,yIndex=0){ 
+  //returns the number of values and y value of the data set that are below calculated value (parameters) and in bounds
+  //In default configuration, the first two columns will be the y value and b0 (constant value in equation)
+  var data = []
+  var count = 0
+  var success = 0
+
+  for (a=0;a<array.length;++a){
+    var bool = true
+    for (s=start;s<parameters.length;++s){ //checks if all conditions are met for each value in row
+       bool = bool && array[a][s]>parameters[s]
+       bool = bool && array[a][s]<=upBound[s]
+       bool = bool && array[a][s]>=lowBound[s]
+      }
+      //updates the return stats
+      count += bool ? 1: 0
+      success =+ bool ? array[a][yIndex]:0
+
+    }
+  success = count >0 ? success/count : "NA" //brings the average value of y or NA when there were no values
+
+  data.push(count,success) //simple array to bring both values
+
+  return data
+
+  }
+
+  function logisticFilterBelow (array,parameters,upBound,lowBound,start=2,yIndex=0){
+  //returns the number of values and y value of the data set that are below calculated value (parameters) and in bounds
+  //In default configuration, the first two columns will be the y value and b0 (constant value in equation 
+  
+  //same function as logisticFilterAbove, but with adjusted parameter condition
+  var data = []
+  var count = 0
+  var success = 0
+
+  for (a=0;a<array.length;++a){
+    var bool = true
+    for (s=start;s<parameters.length;++s){
+       bool = bool && array[a][s]<=parameters[s]
+       bool = bool && array[a][s]<=upBound[s]
+       bool = bool && array[a][s]>=lowBound[s]
+
+      }
+      count += bool ? 1: 0
+      success =+ bool ? array[a][yIndex]:0
+
+    }
+  success = count >0 ? success/count : "NA" 
+
+  data.push(count,success)
+
+  return data
+
+  }

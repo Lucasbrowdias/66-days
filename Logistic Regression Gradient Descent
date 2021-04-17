@@ -1,0 +1,85 @@
+//file dedicated to the machine learning part of the logistic regression tool for sheets.
+
+function logisticMachineLearning() { //script to apply the gradient descent to optimize the logistic regression model
+  //declaration of the used sheets
+  var ss = SpreadsheetApp.getActiveSpreadsheet()
+  var interface = ss.getSheetByName("Interface")
+  var ssml = ss.getSheetByName("ML Gradient Log")
+  var dataSet = ss.getSheetByName("MVLR Backend")
+
+ //declaration of running parameters
+  var numCoef = ssml.getRange("B1").getValue(); //number of coefficients in the equation
+  var numRows = ssml.getRange("D1").getValue(); //number of rows of the dataset
+  var mlConfig = interface.getRange(1,12,3).getValues(); //learning rate, steps and tolerance
+
+  //clearing the step log data from the previous run
+  ssml.getRange(3,1,ssml.getLastRow()-2,4).clearContent()
+
+  // declaration of data and model parts
+  var coefficients = interface.getRange(7,8,numCoef).getValues();
+  var data = dataSet.getRange(2,4,numRows,numCoef).getValues();
+  var yValues = dataSet.getRange(2,3,numRows).getValues();
+  
+  //setup of the gradient descent
+  var log = [] //where each of the steps improvement values will be logged
+  var mlCheck = true //value to check for the iteration
+  var counter = 0 //counter to break an infite loop
+  
+  while (mlCheck){
+    var coefCheck = true //variable to check if all variables are within the tolerance level
+    var step = gradientDescentStep(data,yValues,coefficients,mlConfig[0][0]) //returns the new coefficients, the step sizes and log loss
+    var timeStamp = new Date () //timestap to 
+    log.push([timeStamp,step[2][0]]) //logs the time and log loss
+    for(s=0;s<step[1].length;++s){ //checks if all step sizes were smaller than the tolerance level
+      coefCheck = coefCheck && Math.abs(step[1][s]) < mlConfig[2][0]
+    }
+    counter += 1
+    // breaks the loop if all steps are lower than the tolerance level or the counter reaches the limit
+    mlCheck = mlCheck && counter <mlConfig[1][0] && !coefCheck 
+    for(c=0;c<coefficients.length;++c){ //updates the coefficients
+      coefficients[c][0] = step[0][c]
+    }
+    
+  }
+  
+  ssml.getRange(3,1,log.length,2).setValues(log) // outputs the step log
+  ssml.getRange(3,4,coefficients.length).setValues(coefficients) //outputs the final coefficients
+  
+}
+
+function gradientDescentStep(data,yValues,coefficients,learningRate){ //the function for each gradient descent iteration
+  var stepSizes = [] //where to store how much each variable will change
+  var newCoefficients = [] //where to store the updated coefficients
+  var dataSize = data.length
+  for(c=0;c<coefficients.length;++c){ //iteration for each variable
+    var gradientValues = 0
+    for(r=0;r<dataSize;++r){ //calculates the gradient for each row of data
+      var pValue = logisticModelChance(data[r],coefficients) //calculates the p value
+      gradientValues += (pValue-yValues[r][0])*data[r][c]/dataSize 
+      //gradient value iteration using the calculated p value and already adjusting for the data size
+    }
+    //gradient descent output for the variable
+    stepSizes.push(gradientValues*learningRate)
+    newCoefficients.push(coefficients[c]-gradientValues*learningRate)
+  }
+  //coefficient transformation to be able to use the cost function
+  var transposedCoefficients = []
+  for (t=0;t<newCoefficients.length;++t){
+    transposedCoefficients.push([newCoefficients[t]])
+  }
+  var logLoss = [costFunction(data,transposedCoefficients,yValues)] //returns the log loss of the step
+  return [newCoefficients,stepSizes,logLoss]
+
+}
+
+function costFunction (array,tCoefficients,yValues){ //returns the log loss of the whole data set as a single number
+  var loss= 0
+  for(i=0;i<array.length;++i){
+    var prob = logisticModelChance(array[i],tCoefficients)
+    var correctedProb = yValues[i][0] == 1 ? prob : 1- prob;
+
+    loss += Math.log(correctedProb)/array.length
+
+  }
+  return loss
+}

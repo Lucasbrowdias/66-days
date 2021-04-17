@@ -1,7 +1,7 @@
 # 66-days
 Material made from the 66 Days of Data Science Challenge
 
-## [Tableau Challenge Dashboard](https://public.tableau.com/profile/lucasbrowdias#!/vizhome/66DaysofDataChallenge/WritingDone)
+## [Tableau Challenge Dashboard](https://public.tableau.com/profile/lucasbrowdias#!/vizhome/66DaysofDataChallenge/WorkTracker)
 The dashboard created to track the progress and interesting data from the 66 Days of Data Science Challenge
 
 ## [Multivariate Logistic Regression Tool](https://docs.google.com/spreadsheets/d/12HaukahFWy0aqA3HnhiwfeCcAHFHWu6Q0ylW7QCRIbY/edit?usp=sharing)

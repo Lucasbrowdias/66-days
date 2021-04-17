@@ -41,7 +41,7 @@ function equationFreezer (array,coeffiecents,paramIndex,y=0){
 
   for (i=0;i<array.length;++i){
     if(coeffiecents[0][paramIndex]==0 ){
-      push[[0]] //returns zero values when the chosen variable does not influence the equation
+      xValues.push([[0]]) //returns zero values when the chosen variable does not influence the equation
     }
     else{
       var x = y/coeffiecents[0][paramIndex] //starts the iteration by the y value divided by the coeffiecent
@@ -57,25 +57,27 @@ function equationFreezer (array,coeffiecents,paramIndex,y=0){
 function equationValues (array,coeffiecents,paramIndex,y=0){ 
   //bring the array of values to meet a certain y when all but one variable are set
   var xValues = []
-  var paramSize = coeffiecents[0].length
-  var newArray = array
+  var paramSize = coeffiecents.length
+  var newArray = []
 
   for (i=0;i<array.length;++i){ // same function as the equation freezer, except for output
-    if(coeffiecents[0][paramIndex]==0 ){
-      push[[0]]
+    var row = []
+    if(coeffiecents[paramIndex][0]==0 ){
+      var x = 0
     }
     else{
-      var x = y/coeffiecents[0][paramIndex]
+      var x = y/coeffiecents[paramIndex][0]
       for(b=0;b<paramSize;++b){
-        x += b==paramIndex ? 0 : -coeffiecents[0][b]*array[i][b]/coeffiecents[0][paramIndex]
+        x += b==paramIndex ? 0 : -coeffiecents[b][0]*array[i][b]/coeffiecents[paramIndex][0]
       }
-      newArray[i][paramIndex]=x //replaces only the x value of the original array for the calculated one
     }
+    for (v=0;v<paramSize;++v){ row.push(v==paramIndex ? x : array[i][v])}
+    newArray.push(row)
   }
   return newArray
 }
 
-function logisticFilterAbove (array,parameters,upBound,lowBound,start=2,yIndex=0){ 
+function logisticFilterAbove (array,parameter,upBound,lowBound,pIndex,start=2,yIndex=0){ 
   //returns the number of values and y value of the data set that are below calculated value (parameters) and in bounds
   //In default configuration, the first two columns will be the y value and b0 (constant value in equation)
   var data = []
@@ -83,15 +85,15 @@ function logisticFilterAbove (array,parameters,upBound,lowBound,start=2,yIndex=0
   var success = 0
 
   for (a=0;a<array.length;++a){
-    var bool = true
-    for (s=start;s<parameters.length;++s){ //checks if all conditions are met for each value in row
-       bool = bool && array[a][s]>parameters[s]
-       bool = bool && array[a][s]<=upBound[s]
-       bool = bool && array[a][s]>=lowBound[s]
-      }
+    var bool = array[a][pIndex]>parameter
+    if (bool) {
+        for (s=start;s<upBound.length+1;++s){ //checks if all conditions are met for each value in row
+          bool = bool && array[a][s]<=upBound[s-1]
+          bool = bool && array[a][s]>=lowBound[s-1]
+      }}
       //updates the return stats
       count += bool ? 1: 0
-      success =+ bool ? array[a][yIndex]:0
+      success += bool ? array[a][yIndex]:0
 
     }
   success = count >0 ? success/count : "NA" //brings the average value of y or NA when there were no values
@@ -99,34 +101,67 @@ function logisticFilterAbove (array,parameters,upBound,lowBound,start=2,yIndex=0
   data.push(count,success) //simple array to bring both values
 
   return data
+}
 
-  }
-
-  function logisticFilterBelow (array,parameters,upBound,lowBound,start=2,yIndex=0){
+function logisticFilterBelow (array,parameter,upBound,lowBound,pIndex,start=2,yIndex=0){ 
   //returns the number of values and y value of the data set that are below calculated value (parameters) and in bounds
-  //In default configuration, the first two columns will be the y value and b0 (constant value in equation 
-  
-  //same function as logisticFilterAbove, but with adjusted parameter condition
+  //In default configuration, the first two columns will be the y value and b0 (constant value in equation)
   var data = []
   var count = 0
   var success = 0
 
   for (a=0;a<array.length;++a){
-    var bool = true
-    for (s=start;s<parameters.length;++s){
-       bool = bool && array[a][s]<=parameters[s]
-       bool = bool && array[a][s]<=upBound[s]
-       bool = bool && array[a][s]>=lowBound[s]
-
-      }
+    var bool = array[a][pIndex]<=parameter
+    if (bool){
+        for (s=start;s<upBound.length+1;++s){ //checks if all conditions are met for each value in row
+          bool = bool && array[a][s]<=upBound[s-1]
+          bool = bool && array[a][s]>=lowBound[s-1]
+      }}
+      //updates the return stats
       count += bool ? 1: 0
-      success =+ bool ? array[a][yIndex]:0
+      success += bool ? array[a][yIndex]:0
 
     }
-  success = count >0 ? success/count : "NA" 
+  success = count >0 ? success/count : "NA" //brings the average value of y or NA when there were no values
 
-  data.push(count,success)
+  data.push(count,success) //simple array to bring both values
 
   return data
+}
 
+function logisticBinFilter (array,upBound,lowBound,lossVector,start=2,yIndex=0){ 
+  //returns the number of values and y value of the data set that are below calculated value (parameters) and in bounds
+  //In default configuration, the first two columns will be the y value and b0 (constant value in equation)
+  var data = []
+  var count = 0
+  var success = 0
+  var logLoss = 0
+
+  for (a=0;a<array.length;++a){
+    var bool = true
+    for (s=start;s<lowBound.length+1;++s){ //checks if all conditions are met for each value in row
+       bool = bool && array[a][s]<=upBound[s-1]
+       bool = bool && array[a][s]>=lowBound[s-1]
+      }
+      //updates the return stats
+      count += bool ? 1: 0
+      success += bool ? array[a][yIndex]:0
+      logLoss += bool ? -lossVector[a][0] : 0
+    }
+  success = count >0 ? success/count : "NA" //brings the average value of y or NA when there were no values
+  logLoss = count >0 ? logLoss/count : "NA"
+  data.push(count,success,logLoss) //simple array to bring both values
+
+  return data
+}
+
+function logisticModelChance (xArray,coefficents){ //calculates the p value of a given logistic regression equation
+ //b0 value must be equal to 1 if used
+  var y = 0
+  for (m=0;m<xArray.length;++m){
+    y += xArray[m]*coefficents[m][0] //iteration to add all variable parts
   }
+
+  return 1/(1+Math.exp(-y)) //sigmoid function to make the linear equation into logistic
+
+}

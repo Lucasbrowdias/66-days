@@ -275,45 +275,75 @@ function COMBINATIONS (array,paramSize){
   return combinations
 }
 
-function LOGISTICANALYZER(dataSet,coefficients,variableNames,avgs,upBound,lowBound){
+/**
+ * Analyzes through logistic regression and bins a given data set
+ *
+ * @param {dataSet} input The dataset to be analyzed.
+ * @param {coefficients} input The coefficients of the logistic regression equation.
+ * @param {variableNames} input The names of each of the coefficients' variables.
+ * @param {avgs} input The set of averages of each bin.
+ * @param {upBound} input The upper bound of each bin.
+ * @param {lowBound} input The lower bound of each bin.
+ * @param {lossData} input The log loss (cost function) value for each row of the dataset.
+ * @param {yThreshold} input The threshold value to determine success in the logistic regression formula.
+ * @param {yBound} input The extreme treshold values that determine sure success or failure.
+ * @return The analysis returns for each variable and bin the averages, boundary values, the success rates, log loss, threshold values, and the comparison between the threshold splits.
+ * @customfunction
+ */
+
+function LOGISTICANALYZER(dataSet,coefficients,variableNames,avgs,upBound,lowBound,lossData,yThreshold=0,yBound=2.944){
   var analysisArray = []
-  var col = avgs.length
+  var col = avgs[0].length
+  var firstRow = ["Parameter"]
 
+  //declaration of the column names
+  for (a=1;a<col;++a){firstRow.push("base "+variableNames[a][0])}
+  for (a=1;a<col;++a){firstRow.push("upper "+variableNames[a][0])}
+  for (a=1;a<col;++a){firstRow.push("lower "+variableNames[a][0])}
+  firstRow.push("Bin Count","Bin Success Rate","Model Success Rate","Bin Log Loss","Model Accuracy")
+  firstRow.push("Threshold", "T Above Count","T Above Success Rate","T Below Count","T Below Success Rate","T Chance Delta")
+  firstRow.push("Upper Threshold","U Above Count","U Above Success Rate","U Below Count","U Below Success Rate","U Chance Delta")
+  firstRow.push("Lower Threshold", "L Above Count","L Above Success Rate","L Below Count","L Below Success Rate","L Chance Delta")
+  analysisArray.push(firstRow)
   
-  for(p=1;p<coefficients.length;++p){
+  for(p=1;p<coefficients.length;++p){ //iteration for each variable
     // create the arrays to check values within each bound
-    var yBound = coefficients[0][p] == 0 ? 1: 3*coefficients[0][p]/coefficients[0][p]
-    var threshold = equationValues(avgs,coefficients,p)
-    var upperBound = equationValues(upBound,coefficients,p,yBound)
-    var lowerBound = equationValues(lowBound,coefficients,p,yBound*-1)
+    var threshold = equationValues(avgs,coefficients,p,yThreshold)
+    var upperBound = equationValues(avgs,coefficients,p,yBound)
+    var lowerBound = equationValues(avgs,coefficients,p,yBound*-1)
 
-    for (r=0;r<threshold.length;++r){
-      var rowData = [variableNames[0][p]]
+    for (r=0;r<threshold.length;++r){ //iteration for each row within the variable
+      var rowData = [variableNames[p][0]] //row to have all of the analysis data, starting by the variable name
       //base values
       for (a=1;a<col;++a){rowData.push(avgs[r][a])}
       for (a=1;a<col;++a){rowData.push(upBound[r][a])}
       for (a=1;a<col;++a){rowData.push(lowBound[r][a])}
 
 
+      //bin data
+      var binRet = logisticBinFilter (dataSet,upBound[r],lowBound[r],lossData) //returns count, success rate & log loss
+      var modelChance = logisticModelChance(avgs[r],coefficients)
+      rowData.push(binRet[0],binRet[1],modelChance,binRet[2],1-Math.abs(1-modelChance/binRet[1])) //last value is accuracy
+
       //threshold data
       rowData.push(threshold[r][p])
-      var threshRet = [logisticFilterAbove (dataSet,threshold[r],upBound[r],lowBound[r]),
-      logisticFilterBelow (dataSet,threshold[r],upBound[r],lowBound[r])]
+      var threshRet = [logisticFilterAbove (dataSet,threshold[r][p],upBound[r],lowBound[r],p+1),
+      logisticFilterBelow (dataSet,threshold[r][p],upBound[r],lowBound[r],p+1)] //returns count and success rate for each split
       var threshDelta = threshRet[0][1] == "NA" || threshRet[1][1] =="NA" ? "NA" : threshRet[0][1]- threshRet[1][1]
       rowData.push(threshRet[0][0],threshRet[0][1],threshRet[1][0],threshRet[1][1],threshDelta)
       
 
       //upper bound data
       rowData.push(upperBound[r][p])
-      var upRet = [logisticFilterAbove (dataSet,upperBound[r],upBound[r],lowBound[r]),
-      logisticFilterBelow (dataSet,upperBound[r],upBound[r],lowBound[r])]
+      var upRet = [logisticFilterAbove (dataSet,upperBound[r][p],upBound[r],lowBound[r],p+1),
+      logisticFilterBelow(dataSet,upperBound[r][p],upBound[r],lowBound[r],p+1)] //returns count and success rate for each split
       var upDelta = upRet[0][1] == "NA" || upRet[1][1] =="NA" ? "NA" : upRet[0][1]- upRet[1][1]
       rowData.push(upRet[0][0],upRet[0][1],upRet[1][0],upRet[1][1],upDelta)
 
       //lower bound Data
       rowData.push(lowerBound[r][p])
-      var lowRet = [logisticFilterAbove (dataSet,lowerBound[r],upBound[r],lowBound[r]),
-      logisticFilterBelow (dataSet,lowerBound[r],upBound[r],lowBound[r])]
+      var lowRet = [logisticFilterAbove (dataSet,lowerBound[r][p],upBound[r],lowBound[r],p+1),
+      logisticFilterBelow(dataSet,lowerBound[r][p],upBound[r],lowBound[r],p+1)] //returns count and success rate for each split
       var lowDelta = lowRet[0][1] == "NA" || lowRet[1][1] =="NA" ? "NA" : lowRet[0][1]- lowRet[1][1]
       rowData.push(lowRet[0][0],lowRet[0][1],lowRet[1][0],lowRet[1][1],lowDelta)
 
@@ -326,4 +356,25 @@ function LOGISTICANALYZER(dataSet,coefficients,variableNames,avgs,upBound,lowBou
 
 }
 
+/**
+ * Calculates the log loss (cost function) of a data set given certain coefficients.
+ *
+ * @param {array} input The data to calculate the expected probablity
+ * @param {coefficients} input The logistic regression coefficients
+ * @param {yvalues} input The outcome values of the dataset
+ * @return The log loss for each of the data's rows.
+ * @customfunction
+ */
+
+function LOGLOSS (array,coefficients,yValues){
+  var loss= []
+  for(i=0;i<array.length;++i){
+    var prob = logisticModelChance(array[i],coefficients) //function to calculate the logistic regression y value
+    var correctedProb = yValues[i][0] == 1 ? prob : 1- prob; //the cost function is inversed when y = 0
+
+    loss.push([Math.log(correctedProb)]) //ln function to properly create the log loss function
+
+  }
+  return loss
+}
 

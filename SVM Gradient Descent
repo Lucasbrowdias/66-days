@@ -55,7 +55,7 @@ function gradientDescentStepSVM(data,yValues,coefficients,learningRate,bFactor){
   var stepSizes = [] //where to store how much each variable will change
   var newCoefficients = [] //where to store the updated coefficients
   var dataSize = data.length
-  for(c=0;c<coefficients.length;++c){ //iteration for each variable
+  for(c=0;c<coefficients.length;++c){ //iteration for each variable, c=0 is the bias which has a different calculation
     var gradientValues = 0
     for(r=0;r<dataSize;++r){ //calculates the gradient for each row of data
       var yValue = linearEquation(data[r],coefficients) //calculates the expected machine value

@@ -165,3 +165,14 @@ function logisticModelChance (xArray,coefficents){ //calculates the p value of a
   return 1/(1+Math.exp(-y)) //sigmoid function to make the linear equation into logistic
 
 }
+
+function linearEquation (xArray,coefficents){ //calculates the y value of a regular linear equation
+ //b0 value must be equal to 1 if used
+  var y = 0
+  for (m=0;m<xArray.length;++m){
+    y += xArray[m]*coefficents[m][0] //iteration to add all variable parts
+  }
+
+  return y 
+
+}

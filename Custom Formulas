@@ -378,3 +378,23 @@ function LOGLOSS (array,coefficients,yValues){
   return loss
 }
 
+/**
+ * Adds all values of each column by row
+ *
+ * @param {array} input The data to calculate the sum in each row
+ * @return The sum for each row
+ * @customfunction
+ */
+
+ function ROWSUM(array){
+   var output=[]
+
+  for (r=0;r<array.length;++r){ //iteration for each row
+    row=0
+    for(c=0;c<array[0].length;++c){row += array[r][c]} //row sum iteration
+    output.push([row]) //google sheets requires a 2D array, so we push an array inside an another array
+  }
+  return output
+
+ }
+

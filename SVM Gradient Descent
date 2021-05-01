@@ -10,15 +10,15 @@ function supportVectorMachine() { //script to apply the gradient descent to opti
  //declaration of running parameters
   var numCoef = ssml.getRange("B1").getValue(); //number of coefficients in the equation
   var numRows = ssml.getRange("D1").getValue(); //number of rows of the dataset
-  var mlConfig = interface.getRange(1,7,4).getValues(); //learning rate, steps, tolerance, and bias factor
+  var mlConfig = interface.getRange(1,6,5).getValues(); //learning rate, steps, tolerance, and classification factors
 
   //clearing the step log data from the previous run
-  if (ssml.getLastRow()-2>0){ssml.getRange(3,1,ssml.getLastRow()-2,4).clearContent()}
-  interface.getRange(7,7,interface.getLastRow()-6).clearContent()
+  if (ssml.getLastRow()-2>0){ssml.getRange(3,1,ssml.getLastRow()-2,5).clearContent()}
+  interface.getRange(9,6,interface.getLastRow()-6).clearContent()
 
   // declaration of data and model parts
   var coefficients = [];
-  for (n=0;n<numCoef;++n){coefficients.push([0])}
+  for (n=0;n<numCoef;++n){coefficients.push([0])} //iteration to build 2d coefficent array of zeroes (initial guess)
   var data = dataSet.getRange(2,4,numRows,numCoef).getValues();
   var yValues = dataSet.getRange(2,3,numRows).getValues();
   
@@ -29,8 +29,8 @@ function supportVectorMachine() { //script to apply the gradient descent to opti
   
   while (mlCheck){
     var coefCheck = true //variable to check if all variables are within the tolerance level
-    var step = gradientDescentStepSVM(data,yValues,coefficients,mlConfig[0][0],mlConfig[3][0]) //returns the new coefficients, the step sizes and cost function
-    var timeStamp = new Date () //timestap to 
+    var step = gradientDescentStepSVM(data,yValues,coefficients,mlConfig[0][0],mlConfig[3][0],mlConfig[4][0]) //returns the new coefficients, the step sizes and cost function
+    var timeStamp = new Date () //timestamp to log
     var row = [timeStamp,step[2][0]]
     for (n=0;n<numCoef;++n){row.push(coefficients[n][0])}
     log.push(row) //logs the time, cost function, and coefficients
@@ -47,11 +47,11 @@ function supportVectorMachine() { //script to apply the gradient descent to opti
   }
   
   ssml.getRange(3,1,log.length,2+coefficients.length).setValues(log) // outputs the step log
-  interface.getRange(7,7,coefficients.length).setValues(coefficients) //outputs the final coefficients
+  interface.getRange(9,6,coefficients.length).setValues(coefficients) //outputs the final coefficients
   
 }
 
-function gradientDescentStepSVM(data,yValues,coefficients,learningRate,bFactor){ //the function for each gradient descent iteration
+function gradientDescentStepSVM(data,yValues,coefficients,learningRate,mFactor,cFactor){ //the function for each gradient descent iteration
   var stepSizes = [] //where to store how much each variable will change
   var newCoefficients = [] //where to store the updated coefficients
   var dataSize = data.length
@@ -60,9 +60,9 @@ function gradientDescentStepSVM(data,yValues,coefficients,learningRate,bFactor){
     for(r=0;r<dataSize;++r){ //calculates the gradient for each row of data
       var yValue = linearEquation(data[r],coefficients) //calculates the expected machine value
       if(yValue*yValues[r]>1){ //checks if the data point has a good classification or not
-        gradientValues += (c==0?0:2*coefficients[c])/dataSize //correction when point is correctly classified
+        gradientValues += (c==0?0:2*coefficients[c])*cFactor //correction when point is correctly classified
       } else {
-        gradientValues += (-yValues[r]*data[r][c]+(c==0?0:2*coefficients[c]))/(c==0?bFactor:dataSize) //correction when point is misclassified
+        gradientValues += (-yValues[r]*data[r][c]+(c==0?0:2*coefficients[c]))*mFactor //correction when point is misclassified
       }
       
   }
@@ -84,7 +84,7 @@ function costFunction (array,tCoefficients,yValues){ //returns the cost function
   var loss= 0
   for(i=0;i<array.length;++i){
     var prod = linearEquation(array[i],tCoefficients)
-    var correctedProd = prod*yValues[i]>1 ? 0 : 1 - prod*yValues[i];
+    var correctedProd = prod*yValues[i]>1 ? 0 : 1 - prod*yValues[i]; // cost is always positive
 
     loss += correctedProd/array.length
 

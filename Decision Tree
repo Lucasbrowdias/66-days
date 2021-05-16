@@ -1,0 +1,262 @@
+//file dedicated to the machine learning part of the Decision Tree tool for sheets.
+
+function decisionTree (){ //base script to execute all decision tree algorithm
+//Spreasheet Declarations
+var ss = SpreadsheetApp.getActiveSpreadsheet();
+var adjData = ss.getSheetByName("Adjusted Data");
+var interface = ss.getSheetByName("Interface");
+var mlSheet = ss.getSheetByName("ML Cost Log");
+//var outSheet = ss.getSheetByName("Decision Tree");
+
+//Base values and arrays
+var numCoef = mlSheet.getRange("B1").getValue();
+var dataSize = mlSheet.getRange("D1").getValue();
+var initialProb = mlSheet.getRange("F1").getValue();
+var columnNames = interface.getRange(9,7,numCoef).getValues();
+var columnTypes = interface.getRange(9,8,numCoef).getValues();
+var hasNA = interface.getRange(9,9,numCoef).getValues();
+var mlConfig = interface.getRange(1,8,2).getValues();
+var yValues = adjData.getRange(2,2,dataSize).getValues();
+var dataSet = adjData.getRange(2,3,dataSize,numCoef).getValues();
+
+//decision starting point declaration
+var numIterations = mlConfig[0][0]
+var gini = 1 - initialProb*initialProb - (1-initialProb)*(1-initialProb);
+var log = [[new Date(),gini,'0','No Column','No Split',]];
+var firstBranch = { //standard object to store branch data
+    level: 0,
+    path: '',
+    yData: yValues,
+    arrayData: dataSet,
+    arraySize: dataSize, 
+    giniValue: gini,
+    pValue: initialProb
+  }
+
+  var arraySet = [firstBranch] //array to store branches
+
+  for (l=0;l<numIterations;++l){ //iterations for each split
+    var timeStamp = new Date(); //for performance purposes
+    var arrayIndex = 0 //to be able to replace the split branch by the two new parts
+    var splitData = [] // array to store what the split function returns
+    var splitLevel = 0 //hierarchy of the split made
+    var splitBool = false //to see if a branch was made during the current iteration
+    var baseGini = gini //the cost function to be improved upon
+    for(b=0;b<arraySet.length;++b){ //iteration to split all data parts to check the best choice
+      //conditional to see if the data is a valid choice to try splitting
+      if( arraySet[b].arraySize>=mlConfig[1][0] && arraySet[b].pValue !== 1 && arraySet[b].pValue !== 0){ 
+        var splitTry = branchMaker(arraySet[b].yData,arraySet[b].arrayData,columnNames,columnTypes,hasNA,arraySet[b].level,arraySet[b].path) //call for function that finds the best split in a given array
+        var giniTest = baseGini -(arraySet[b].giniValue-splitTry[2])*arraySet[b].arraySize/dataSize //updated gini with the given branch
+        if (giniTest<gini){ //will only update base values if the cost function is improved
+          gini = giniTest
+          arrayIndex = b
+          splitData = splitTry
+          splitLevel = arraySet[b].level+arraySet[b].path
+          splitBool = true //makes the update possible
+        }
+      }
+    }
+    if (splitBool){ //updates only if there was a choice to be done
+      arraySet.push(splitData[3],splitData[4]) //puts the new split data into the set
+      arraySet.splice(arrayIndex,1) //removes the data part that was split
+      log.push([timeStamp,gini,splitLevel,splitData[0],splitData[1]]) //creates the log
+    } else {break}
+  }
+  mlSheet.getRange(3,1,log.length,5).setValues(log)
+
+
+}
+
+function branchMaker(yValues,array,columnNames,columnTypes,hasNA,hierarchy,tree){ //function to choose the best split within all columns avaliable
+  //base variables declaration
+  var numColumns = columnTypes.length
+  var branchCost = 1
+  var branchColumn = ''
+  var columnSplit = 0
+  var columnInd = 0 
+  var jointArray =  [] //array that contains the y values and column data
+
+  for (r=0;r<array.length;++r){ //iteration to pair the y values with the columns
+    row = [yValues[r][0]]
+    for (c=0;c<numColumns;++c){ row.push(array[r][c])}
+    jointArray.push(row)
+  }
+
+  for (c=0;c<numColumns;++c){ //iteration to find the best split in each column
+    var columnValues = []
+    for (r=0;r<array.length;++r){ columnValues.push([array[r][c]])} //creates an array with only the column values
+    if (columnTypes[c][0]=="String"){
+      var branchTry = stringColumnSplit(yValues,columnValues) //calls the string type split
+    } else { if (hasNA) {
+      var nullTry = nullColumnSplit(yValues,columnValues) //calls the null split
+      //removing null values for the numeric split
+      var adjColumnValues = []
+      var adjYValues = []
+      for (r=0;r<array.length;++r){if(array[r][c]!=='NULL'){
+        adjColumnValues.push([array[r][c]])
+        adjYValues.push([yValues[r][0]])}}
+      var numTry = numericColumnSplit(adjYValues,adjColumnValues) //calls the numeric split
+      var branchTry = numTry[0][1]>nullTry[0][1] ? nullTry : numTry //checks whether the null or numeric split is better
+    } else { var branchTry = numericColumnSplit(yValues,columnValues)}} //calls the numeric split
+    if( branchTry[0][1]<branchCost){ //updates the base branch data if the cost function is better
+      branchColumn = columnNames[c][0]
+      columnSplit = branchTry[0][0]
+      branchCost = branchTry[0][1]
+      columnInd = c
+    }
+  }
+
+  var aSplit = [] //first part of the split
+  var bSplit = [] //second part of the split
+  if(typeof columnSplit == 'number' && columnSplit !=='NULL'){ //numeric split (null goes with the null part)
+    aSplit = jointArray.filter(function(el) {return el[columnInd+1] >= columnSplit })
+    bSplit = jointArray.filter(function(el) {return el[columnInd+1] < columnSplit || el[columnInd+1] == 'NULL' })
+  } else { //string split
+    aSplit = jointArray.filter(function(el) {return el[columnInd+1] == columnSplit })
+    bSplit = jointArray.filter(function(el) {return el[columnInd+1] !== columnSplit })
+  }
+
+  //declaration of each parts' data
+  var yDataA = [] //y values
+  var yDataB = []
+  var arrayDataA = [] //whole data
+  var arrayDataB = []
+  var pValueA = 0 // p value (success rate)
+  var pValueB = 0
+
+  for (r=0;r<aSplit.length;++r){ //iteration to create the data based on aSplit
+    yDataA.push([aSplit[r][0]])
+    rowA = []
+    for(c=1;c<aSplit[0].length;++c){rowA.push(aSplit[r][c])}
+    arrayDataA.push(rowA)
+    pValueA += aSplit[r][0]/aSplit.length
+  }
+
+  for (r=0;r<bSplit.length;++r){ //iteration to create the data based on bSplit
+    yDataB.push([bSplit[r][0]])
+    rowB = []
+    for(c=1;c<bSplit[0].length;++c){rowB.push(bSplit[r][c])}
+    arrayDataB.push(rowB)
+    pValueB += bSplit[r][0]/bSplit.length
+  }
+
+  var branchA = { //creation of the object for the first split part
+    level: hierarchy +1,
+    path: tree+"A",
+    yData: yDataA,
+    arrayData: arrayDataA ,
+    arraySize: arrayDataA.length, 
+    giniValue: 1-pValueA**2-(1-pValueA)**2 ,
+    pValue: pValueA
+  }
+
+  var branchB = { //creation of the object for the second split part
+    level: hierarchy +1,
+    path: tree+"B",
+    yData: yDataB,
+    arrayData: arrayDataB,
+    arraySize: arrayDataB.length, 
+    giniValue: 1-pValueB**2-(1-pValueB)**2 ,
+    pValue: pValueB
+  }
+
+  return [branchColumn,columnSplit,branchCost,branchA,branchB] //returns the split stats and two parts
+
+}
+
+
+function numericColumnSplit (yValues,columnValues){ //splits a column based on numerical values
+  var array =[]
+  for (n=0;n<columnValues.length;++n){ //creates a column + y value array
+  array.push([columnValues[n][0],yValues[n][0]]) }
+  var clusterA = []
+  var clusterB = []
+  array.sort(function(a, b) { //sorts the data to be able to check the splits
+    if (a[0] === b[0]) {
+        return 0;
+    }
+    else {
+        return (a[0] < b[0]) ? -1 : 1;
+    }});
+  var range = array.length;
+  //base values for the cost function
+  var threshold = 0;
+  var splitCost = 1;
+  clusterA = array; 
+  for (i=0; i<range-1;++i){ //iteration to check if each split is the best
+    var checkThreshold = array[range-i-1][0]; //uses the last value as the split value
+    clusterA = clusterA.slice(0,range-i-1); //removes the value from the first set
+    clusterB.push(array[range-i-1]); //puts the value in the second set
+    //calculates the p value for each set
+    var probA = costFunction(clusterA)
+    var probB = costFunction(clusterB)
+    // calculates the gini index of the current split
+    var costCheck = 1 -(probA**2+(1-probA)**2)*clusterA.length/range - (probB**2+(1-probB)**2)*clusterB.length/range
+    if(costCheck<splitCost){ //updates the values if it is the best split yet
+      threshold = checkThreshold;
+      splitCost = costCheck;}
+    }
+  return [[threshold, splitCost]] //returns where the best split was and its gini index
+}
+
+function stringColumnSplit (yValues,columnValues){ //splits the data by checking which string value is most deterministic
+  var array =[]
+  for (n=0;n<columnValues.length;++n){ //creates the column value and y value pairs
+  array.push([columnValues[n][0],yValues[n][0]]) }
+  var clusterA = []
+  var clusterB = []
+  var uniqueValues =[] //array to store all unique string values
+
+  for (u=0;u<columnValues.length;++u){ //iteration to create the unique values
+    if(uniqueValues.indexOf(columnValues[u][0])==-1){uniqueValues.push(columnValues[u][0])}
+  }  
+
+  var range = uniqueValues.length;
+  //declartion of base values
+  var threshold = 0;
+  var splitCost = 1;
+  for (i=0; i<range-1;++i){ //iteration to test each string value
+    var checkThreshold = uniqueValues[i];
+    //splits the data into the string value and not the string value
+    clusterA = array.filter(function(el) {return el[0] == uniqueValues[i] })
+    clusterB = array.filter(function(el) {return el[0] !== uniqueValues[i] })
+    //calculates the p value of each part
+    var probA = costFunction(clusterA)
+    var probB = costFunction(clusterB)
+    //calculates the gini value 
+    var costCheck = 1 -(probA**2+(1-probA)**2)*clusterA.length/columnValues.length - (probB**2+(1-probB)**2)*clusterB.length/columnValues.length
+      if(costCheck<splitCost){ //updates the return values whenever a better split choice comes up
+        threshold = checkThreshold;
+        splitCost = costCheck;}
+  
+  }
+  return [[threshold, splitCost]]
+}
+
+function nullColumnSplit (yValues,columnValues){ //splits the data into null and non null values
+  var array =[]
+  for (n=0;n<columnValues.length;++n){ array.push([columnValues[n][0],yValues[n][0]]) } //y value+ column pair
+  //splits the data into null and non null
+  var clusterA = array.filter(function(el) {return el[0] == "NULL" })
+  var clusterB = array.filter(function(el) {return el[0] !== "NULL" })
+  //calculates the p value of each split
+  var probA = costFunction(clusterA)
+  var probB = costFunction(clusterB)
+  //calculates the gini value (cost function) of the split
+  var costCheck = 1 -(probA*probA+(1-probA)*(1-probA))*clusterA.length/array.length - (probB**2+(1-probB)**2)*clusterB.length/array.length
+  var threshold = 'NULL';
+  var splitCost = costCheck
+  
+  
+  return [[threshold, splitCost]]
+}
+
+
+function costFunction (cluster){ //returns the cost function of the whole data set as a single number
+  var prob= 0
+  for(i=0;i<cluster.length;++i){
+    prob += cluster[i][1]/cluster.length
+
+  }
+  return prob
+}

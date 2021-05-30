@@ -8,6 +8,8 @@ var interface = ss.getSheetByName("Interface");
 var mlSheet = ss.getSheetByName("ML Cost Log");
 var outSheet = ss.getSheetByName("Decision Tree");
 
+mlSheet.getRange(3,1,mlSheet.getLastRow()-2,6).clearContent();
+
 //Base values and arrays
 var numCoef = mlSheet.getRange("B1").getValue();
 var dataSize = mlSheet.getRange("D1").getValue();
@@ -22,7 +24,8 @@ var dataSet = adjData.getRange(2,3,dataSize,numCoef).getValues();
 //decision starting point declaration
 var numIterations = mlConfig[0][0]
 var gini = 1 - initialProb*initialProb - (1-initialProb)*(1-initialProb);
-var log = [[new Date(),gini,'0','No Column','No Split',dataSet.length]];
+var accuracy = initialProb > 0.5 ? initialProb : 1-initialProb;
+var log = [[new Date(),gini,'0','No Column','No Split',accuracy]];
 var firstBranch = { //standard object to store branch data
     level: 0,
     path: '',
@@ -60,7 +63,11 @@ var firstBranch = { //standard object to store branch data
     if (splitBool){ //updates only if there was a choice to be done
       arraySet.push(splitData[3],splitData[4]) //puts the new split data into the set
       arraySet.splice(arrayIndex,1) //removes the data part that was split
-      log.push([timeStamp,gini,splitLevel,splitData[0],splitData[1],aSize]) //creates the log
+      var errors = 0
+      for (s=0;s<arraySet.length;++s){
+      errors += arraySet[s].pValue > 0.5 ? arraySet[s].arraySize*(1-arraySet[s].pValue) : arraySet[s].arraySize*arraySet[s].pValue
+      }
+      log.push([timeStamp,gini,splitLevel,splitData[0],splitData[1],1-errors/dataSize]) //creates the log
     } else {break}
   }
   mlSheet.getRange(3,1,log.length,6).setValues(log)
@@ -77,6 +84,10 @@ var firstBranch = { //standard object to store branch data
   }
   //puts the mirrored dataset into a sheet
 outSheet.getRange(2,1,classifiedData.length,classifiedData[0].length).setValues(classifiedData)
+
+treeFormatting() //formats the decision tree plot according to the output
+
+ss.getSheetByName("Decision Tree Plot").activate()
 }
 
 function branchMaker(yValues,array,columnNames,columnTypes,hasNA,hierarchy,tree){ //function to choose the best split within all columns avaliable
@@ -126,7 +137,7 @@ function branchMaker(yValues,array,columnNames,columnTypes,hasNA,hierarchy,tree)
 
   var aSplit = [] //first part of the split
   var bSplit = [] //second part of the split
-  if(columnTypes[columnInd][0] == 'Number' && columnSplit !=='NULL'){ //numeric split (null goes with the null part)
+  if(columnTypes[columnInd][0] == 'Number' && columnSplit !=='NULL'){ //numeric split (null goes with the lower part)
     aSplit = jointArray.filter(function(el) {return el[columnInd+1] >= columnSplit })
     bSplit = jointArray.filter(function(el) {return el[columnInd+1] < columnSplit || el[columnInd+1] == 'NULL' })
   } else { //string split
@@ -281,4 +292,94 @@ function costFunction (cluster){ //returns the cost function of the whole data s
 
   }
   return prob
+}
+
+
+function treeFormatting (){ //formats the decision tree plot according to the current data
+
+var ss= SpreadsheetApp.getActiveSpreadsheet();
+var treeSheet = ss.getSheetByName("Decision Tree Plot")
+ss.getSheetByName("DT Base Format").getRange("A1:AG38").copyFormatToRange(treeSheet,1,33,1,38); //resets format
+var formatTable = ss.getSheetByName("Format Data").getRange("A2:G64").getValues(); //gets the formating config for each box
+
+for (f=0;f<formatTable.length;++f){ //iteration for each box
+  if(formatTable[f][1]){ //checks if the box has data
+    clearFormat("Decision Tree Plot",formatTable[f][2]) //clears box if empty
+  } else{
+    treeSheet.getRange(formatTable[f][3]).setBackground(formatTable[f][6]) //colors the box according to data size and p value
+  }
+}
+}
+
+function resetFormat(){ //formats the decision tree plot to the basic white
+var ss= SpreadsheetApp.getActiveSpreadsheet();
+var treeSheet = ss.getSheetByName("Decision Tree Plot")
+ss.getSheetByName("DT Base Format").getRange("A1:AG38").copyFormatToRange(treeSheet,1,33,1,38);
+}
+
+function classifyData (){ //classifies a dataset according to the current decision tree model
+  //declaration of sheets
+  var ss = SpreadsheetApp.getActiveSpreadsheet()
+  var testSheet = ss.getSheetByName("Data Test")
+  var config = ss.getSheetByName("Interface")
+  var mlLog = ss.getSheetByName("ML Cost Log")
+  var classification = ss.getSheetByName("Decision Tree Rules").getDataRange().getValues() //the possible outputs
+
+  testSheet.getRange(4,2,testSheet.getLastRow()-3,2).clearContent() //clears the output
+  //declaration of variables
+  var numCoef = mlLog.getRange("B1").getValue()
+  var rules = mlLog.getRange(4,3,mlLog.getLastRow()-3,3).getValues() //the decision tree splits
+  var testData = testSheet.getRange(4,5,testSheet.getLastRow()-3,testSheet.getLastColumn()-4).getValues() //the input
+  var columnNamesRaw = config.getRange(9,7,numCoef).getValues() //names of each column
+  var columnTypes = config.getRange(9,8,numCoef).getValues() //types of column
+  var limit = config.getRange("H1").getValue() //the number of leaves to protect the while loop
+  var adjustedData = []
+  var columnNames = []
+  for (g=0;g<numCoef;++g){columnNames.push(columnNamesRaw[g][0])} //transforms the column names 2D array into a vector
+
+  for (i=0;i<testData.length;++i){ //transforms empty values into 'NULL'
+    var row = []
+    for (j=0;j<numCoef;++j){row.push(testData[i][j]==''?"NULL":testData[i][j])}
+    adjustedData.push(row)
+  }
+
+  var classifiedData = []
+  for(r=0;r<testData.length;++r){ //runs the classification function for each row
+    classifiedData.push(classifyByTree(adjustedData[r],rules,classification,columnNames,columnTypes,limit))
+  }
+
+  testSheet.getRange(4,2,classifiedData.length,2).setValues(classifiedData) //outputs the path and outcome of each row of input
+
+ }
+
+function classifyByTree(data,rules,classification,columnNames,columnTypes, limit){ //classifies a single entry by the model
+//variable setup
+var classified = true
+var level = 0 //the number of splits done
+var counter = 0 //while loop protection
+var path = '' //the choices the tree made in each split
+var columnIndex = columnNames.indexOf(rules[0][1])
+var ruleIndex = 0 //row of the split rule
+var hierarchyList =[] //list of split names (level + path)
+var classificationList = [] //p values of each classification
+for (h=0;h<rules.length;++h){  hierarchyList.push(rules[h][0])} //2D into vector
+for (c=0;c<classification.length;++c){classificationList.push(classification[c][0])} //2D into vector
+
+//
+while (classified){ //loop while there are further splits
+columnIndex = columnNames.indexOf(rules[ruleIndex][1]) //finds the column index of the split column
+classified = counter <  limit //checks iterations have surpassed the limit
+if (columnTypes[columnIndex]=='Number'&& data[columnIndex] !== 'NULL' && rules[ruleIndex][2] !=='NULL'){ //checks type of split
+  path += data[columnIndex] >= rules[ruleIndex][2] ? "A" : "B" //adds "A" to the path when true and "B" when false
+} else {path += data[columnIndex] == rules[ruleIndex][2] ? "A" : "B"} //for null or string splits
+level +=1 //adds to the level counter for each split
+ruleIndex = hierarchyList.indexOf(level+path) //checks if the current group has another split
+classified = ruleIndex !==-1 //condition to break if no further splits where found
+counter += 1
+
+}
+
+var hierarchyIndex = classificationList.indexOf(level+path) //finds the row of the classified group
+return [level+path,classification[hierarchyIndex][3]>0.5 ? 1: 0] //outputs the hierarchy and absolute classification of the group
+
 }

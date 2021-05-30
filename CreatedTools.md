@@ -9,3 +9,6 @@ A Google Sheets Tool to analyze a dataset in the logistic regression lens. Set u
 
 ## [Support Vector Machine Tool](https://docs.google.com/spreadsheets/d/1MVFO87xh8g-Cg53MsV-cKVRl4gMUtTBRBazV_iL5414/edit?usp=sharing)
 A Google Sheets Tool to analyze a dataset in the support vector machine lens. Set up what variables to analyze and optimize the model setup with the help of the machine learning output visualizations.
+
+## [Decision Tree Tool](https://docs.google.com/spreadsheets/d/1b9lOYeEYjnznsTF2JpEFZwUlqiehC1dEPjcRL3jqu2M/edit?usp=sharing)
+A Google Sheets Tool to analyze a dataset with the Decision Tree Model. Set up the variables to be considered and check what the binary decision tree brings of insights about the data set, as well as the possiblity of classifying new data based on the trained model.

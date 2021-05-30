@@ -176,3 +176,8 @@ function linearEquation (xArray,coefficents){ //calculates the y value of a regu
   return y 
 
 }
+
+function clearFormat(sheet,range) { //clears any formatting and makes any text white
+  var spreadsheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheet);
+  spreadsheet.getRange(range).clearFormat().setFontColor('#ffffff')
+};
